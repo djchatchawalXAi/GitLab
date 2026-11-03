@@ -11,6 +11,10 @@ class AnalyzeDcTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "greater than zero"):
             analyze_dc(12, 0)
 
+    def test_rejects_negative_resistance(self):
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            analyze_dc(12, -6)
+
     def test_allows_zero_voltage(self):
         self.assertEqual(analyze_dc(0, 6), {"current_a": 0, "power_w": 0})
 
