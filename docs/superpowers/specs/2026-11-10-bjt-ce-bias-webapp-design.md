@@ -89,8 +89,10 @@ VCE = VC - VE
 ### Independent calculation — nodal analysis
 
 Solve the linear system `A x = b` with `x = [VB, VE, VC]`, using Gaussian
-elimination with partial pivoting. This code path does not call any of the
-Thevenin functions and does not reuse its algebra.
+elimination with partial pivoting. The solve algebra is independent: this code
+path does not reuse the Thevenin current/voltage equations. `solve_nodal` calls
+`thevenin_model` only to populate the displayed VBB and RB, which are not
+compared.
 
 With `IC = (VCC - VC) / RC`, `IB = IC / beta`, `IE = VE / RE`:
 

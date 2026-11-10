@@ -106,8 +106,9 @@
       </p>
       {% else %}
       <p class="verdict">
-        Cross-check not applicable: the transistor is cut off, both solution
-        methods give zero current, and there is nothing to compare.
+        Cross-check not applicable: in cut-off the transistor is not in forward-active
+        mode, so the nodal model (which assumes the input VBE) does not apply and
+        there is no common operating point to compare.
       </p>
       {% endif %}
     {% endif %}</section>
