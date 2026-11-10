@@ -1,0 +1,132 @@
+/* BJT common-emitter bias calculator — single-column, no build step. */
+
+:root {
+  --text: #1b1b1f;
+  --muted: #55555f;
+  --line: #c9c9d1;
+  --field-bg: #ffffff;
+  --page-bg: #fbfbfc;
+  --accent: #1f4e79;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem 4rem;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.intro {
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field label {
+  font-weight: 600;
+}
+
+.field input {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+button {
+  padding: 0.45rem 1.1rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #163a5b;
+}
+
+.actions a {
+  color: var(--accent);
+}
+
+#results {
+  margin-top: 2rem;
+}
+
+/* Region badges. The region name is always written out beside the badge,
+   so colour is never the only signal. */
+.region-cutoff,
+.region-saturation,
+.region-near_saturation,
+.region-forward_active {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.region-cutoff {
+  border-color: #b9bac0;
+  background: #eeeef0;
+  color: #3f3f46;
+}
+
+.region-saturation {
+  border-color: #d98b86;
+  background: #fbe4e2;
+  color: #8c1d18;
+}
+
+.region-near_saturation {
+  border-color: #dcae52;
+  background: #fdf0d5;
+  color: #7a4a06;
+}
+
+.region-forward_active {
+  border-color: #6fae86;
+  background: #e3f4e8;
+  color: #14532d;
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BJT common-emitter bias calculator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main>
+    <h1>BJT common-emitter DC bias</h1>
+    <p class="intro">
+      Voltage-divider bias. Enter resistances in kΩ, voltages in V, and the
+      transistor current gain β.
+    </p>
+
+    <form method="post" action="/calculate">
+      <div class="form-grid">
+        {% for name, label, unit, default in fields %}
+        <div class="field">
+          <label for="{{ name }}">{{ label }} ({{ unit }})</label>
+          <input type="text" inputmode="decimal" id="{{ name }}" name="{{ name }}"
+                 value="{{ form.get(name, default) }}">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="actions">
+        <button type="submit">Calculate</button>
+        <a href="/?blank=1">Reset</a>
+      </div>
+    </form>
+
+    <section id="results"></section>
+  </main>
+</body>
+</html>
