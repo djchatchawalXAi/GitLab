@@ -14,13 +14,27 @@
       transistor current gain β.
     </p>
 
+    {% if errors %}
+    <section class="error-summary" role="alert">
+      <h2>Please fix the highlighted fields</h2>
+      <ul>
+        {% for message in errors.values() %}
+        <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     <form method="post" action="/calculate">
       <div class="form-grid">
         {% for name, label, unit, default in fields %}
         <div class="field">
           <label for="{{ name }}">{{ label }} ({{ unit }})</label>
           <input type="text" inputmode="decimal" id="{{ name }}" name="{{ name }}"
-                 value="{{ form.get(name, default) }}">
+                 value="{{ form.get(name, default) }}"{% if errors.get(name) %} aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
+          {% if errors.get(name) %}
+          <p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -30,7 +44,73 @@
       </div>
     </form>
 
-    <section id="results"></section>
+    <section id="results">{% if analysis %}
+      <div class="op-header">
+        <span class="region-{{ analysis.region.value }}">{{ region_labels[analysis.region] }}</span>
+      </div>
+      {% if analysis.warning %}
+      <p class="callout">{{ analysis.warning }}</p>
+      {% endif %}
+
+      <h2>Operating point</h2>
+      <table>
+        <caption class="sr-only">Solved operating point quantities</caption>
+        <tbody>
+          <tr><th scope="row">IB</th><td>{{ format_quantity(analysis.point.ib_a, "ib") }}</td></tr>
+          <tr><th scope="row">IC</th><td>{{ format_quantity(analysis.point.ic_a, "ic") }}</td></tr>
+          <tr><th scope="row">IE</th><td>{{ format_quantity(analysis.point.ie_a, "ie") }}</td></tr>
+          <tr><th scope="row">VCE</th><td>{{ format_quantity(analysis.point.vce_v, "vce") }}</td></tr>
+          <tr><th scope="row">VB</th><td>{{ format_quantity(analysis.point.vb_v, "vb") }}</td></tr>
+          <tr><th scope="row">VC</th><td>{{ format_quantity(analysis.point.vc_v, "vc") }}</td></tr>
+          <tr><th scope="row">VE</th><td>{{ format_quantity(analysis.point.ve_v, "ve") }}</td></tr>
+        </tbody>
+      </table>
+      <p class="model">
+        Thevenin base model: VBB = {{ format_quantity(analysis.point.vbb_v, "vbb") }},
+        RB = {{ format_quantity(analysis.point.rb_ohm, "rb") }}.
+      </p>
+
+      <h2>Cross-check</h2>
+      {% if analysis.comparison %}
+      <table>
+        <caption class="sr-only">Thevenin versus Nodal solution comparison</caption>
+        <thead>
+          <tr>
+            <th scope="col">Quantity</th>
+            <th scope="col">Thevenin</th>
+            <th scope="col">Nodal</th>
+            <th scope="col">|Δ|</th>
+            <th scope="col">Δ%</th>
+            <th scope="col">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in analysis.comparison.rows %}
+          <tr>
+            <th scope="row">{{ row.key | upper }}</th>
+            <td>{{ format_quantity(row.reference, row.key) }}</td>
+            <td>{{ format_quantity(row.candidate, row.key) }}</td>
+            <td>{{ format_quantity(row.abs_diff, row.key) }}</td>
+            <td>{{ "%.2g" | format(row.rel_diff * 100) }}%</td>
+            <td>{{ "agree" if row.agrees else "do not agree" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="verdict">
+        {% if analysis.comparison.agrees %}
+        The Thevenin and Nodal solutions agree within tolerance.
+        {% else %}
+        The Thevenin and Nodal solutions do not agree within tolerance.
+        {% endif %}
+      </p>
+      {% else %}
+      <p class="verdict">
+        Cross-check not applicable: the transistor is cut off, both solution
+        methods give zero current, and there is nothing to compare.
+      </p>
+      {% endif %}
+    {% endif %}</section>
   </main>
 </body>
 </html>

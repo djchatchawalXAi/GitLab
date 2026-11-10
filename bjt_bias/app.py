@@ -2,7 +2,7 @@
 
 from flask import Flask, render_template, request
 
-from bias import Region
+from bias import Region, ValidationError, analyze, parse_input
 
 FIELD_SPECS: tuple[tuple[str, str, str, str], ...] = (
     ("vcc", "VCC", "V", "12"),
@@ -48,6 +48,7 @@ def format_quantity(value_si: float, key: str) -> str:
 def create_app() -> Flask:
     """Build the Flask application serving the bias calculator."""
     app = Flask(__name__)
+    app.jinja_env.globals["format_quantity"] = format_quantity
 
     @app.get("/")
     def index():
@@ -62,6 +63,30 @@ def create_app() -> Flask:
             form=form,
             errors={},
             analysis=None,
+            region_labels=REGION_LABELS,
+        )
+
+    @app.post("/calculate")
+    def calculate():
+        """Validate the posted form and render results or field errors."""
+        raw = request.form.to_dict()
+        try:
+            inp = parse_input(raw)
+        except ValidationError as error:
+            return render_template(
+                "index.html",
+                fields=FIELD_SPECS,
+                form=raw,
+                errors=error.errors,
+                analysis=None,
+                region_labels=REGION_LABELS,
+            )
+        return render_template(
+            "index.html",
+            fields=FIELD_SPECS,
+            form=raw,
+            errors={},
+            analysis=analyze(inp),
             region_labels=REGION_LABELS,
         )
 

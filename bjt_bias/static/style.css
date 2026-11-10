@@ -90,8 +90,87 @@ button:hover {
   color: var(--accent);
 }
 
-#results {
+#results:not(:empty) {
   margin-top: 2rem;
+}
+
+.op-header {
+  margin-bottom: 0.75rem;
+}
+
+.callout {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid #dcae52;
+  background: #fdf0d5;
+  color: #7a4a06;
+}
+
+#results h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+#results table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#results th,
+#results td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+#results tbody th {
+  font-weight: 600;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.model,
+.verdict {
+  color: var(--muted);
+}
+
+.verdict {
+  margin-top: 0.75rem;
+}
+
+.field-error {
+  margin: 0;
+  color: #8c1d18;
+  font-size: 0.9rem;
+}
+
+.error-summary {
+  margin-bottom: 1.5rem;
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid #d98b86;
+  background: #fbe4e2;
+  color: #8c1d18;
+}
+
+.error-summary h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.error-summary ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.error-summary li {
+  margin: 0.15rem 0;
 }
 
 /* Region badges. The region name is always written out beside the badge,
