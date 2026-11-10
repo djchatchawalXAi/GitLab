@@ -3,115 +3,285 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BJT common-emitter bias calculator</title>
+  <title>Lab 02: BJT DC Bias Web App</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <main>
-    <h1>BJT common-emitter DC bias</h1>
-    <p class="intro">
-      Voltage-divider bias. Enter resistances in kΩ, voltages in V, and the
-      transistor current gain β.
-    </p>
-
-    {% if errors %}
-    <section class="error-summary" role="alert">
-      <h2>Please fix the highlighted fields</h2>
-      <ul>
-        {% for message in errors.values() %}
-        <li>{{ message }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    <form method="post" action="/calculate">
-      <div class="form-grid">
-        {% for name, label, unit, default in fields %}
-        <div class="field">
-          <label for="{{ name }}">{{ label }} ({{ unit }})</label>
-          <input type="text" inputmode="decimal" id="{{ name }}" name="{{ name }}"
-                 value="{{ form.get(name, default) }}"{% if errors.get(name) %} aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
-          {% if errors.get(name) %}
-          <p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>
-          {% endif %}
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+            <rect x="9.5" y="9.5" width="5" height="5" rx="1"/>
+            <path d="M9 3v3M12 3v3M15 3v3M9 18v3M12 18v3M15 18v3M3 9h3M3 12h3M3 15h3M18 9h3M18 12h3M18 15h3"/>
+          </svg>
+        </span>
+        <div>
+          <h1>Lab 02: BJT DC Bias Web App</h1>
+          <p class="subtitle">ENG29 2121 – Common Emitter (Voltage Divider Bias)</p>
         </div>
-        {% endfor %}
       </div>
-      <div class="actions">
-        <button type="submit">Calculate</button>
-        <a href="/?blank=1">Reset</a>
-      </div>
-    </form>
-
-    <section id="results">{% if analysis %}
-      <div class="op-header">
-        <span class="region-{{ analysis.region.value }}">{{ region_labels[analysis.region] }}</span>
-      </div>
-      {% if analysis.warning %}
-      <p class="callout">{{ analysis.warning }}</p>
-      {% endif %}
-
-      <h2>Operating point</h2>
-      <table>
-        <caption class="sr-only">Solved operating point quantities</caption>
-        <tbody>
-          <tr><th scope="row">IB</th><td>{{ format_quantity(analysis.point.ib_a, "ib") }}</td></tr>
-          <tr><th scope="row">IC</th><td>{{ format_quantity(analysis.point.ic_a, "ic") }}</td></tr>
-          <tr><th scope="row">IE</th><td>{{ format_quantity(analysis.point.ie_a, "ie") }}</td></tr>
-          <tr><th scope="row">VCE</th><td>{{ format_quantity(analysis.point.vce_v, "vce") }}</td></tr>
-          <tr><th scope="row">VB</th><td>{{ format_quantity(analysis.point.vb_v, "vb") }}</td></tr>
-          <tr><th scope="row">VC</th><td>{{ format_quantity(analysis.point.vc_v, "vc") }}</td></tr>
-          <tr><th scope="row">VE</th><td>{{ format_quantity(analysis.point.ve_v, "ve") }}</td></tr>
-        </tbody>
-      </table>
-      <p class="model">
-        Thevenin base model: VBB = {{ format_quantity(analysis.point.vbb_v, "vbb") }},
-        RB = {{ format_quantity(analysis.point.rb_ohm, "rb") }}.
+      <p class="course-badge">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></svg>
+        <span>Computer Programming for<br>Electrical Engineers</span>
       </p>
+    </div>
+  </header>
 
-      <h2>Cross-check</h2>
-      {% if analysis.comparison %}
-      <table>
-        <caption class="sr-only">Thevenin versus Nodal solution comparison</caption>
-        <thead>
-          <tr>
-            <th scope="col">Quantity</th>
-            <th scope="col">Thevenin</th>
-            <th scope="col">Nodal</th>
-            <th scope="col">|Δ|</th>
-            <th scope="col">Δ%</th>
-            <th scope="col">Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in analysis.comparison.rows %}
-          <tr>
-            <th scope="row">{{ row.key | upper }}</th>
-            <td>{{ format_quantity(row.reference, row.key) }}</td>
-            <td>{{ format_quantity(row.candidate, row.key) }}</td>
-            <td>{{ format_quantity(row.abs_diff, row.key) }}</td>
-            <td>{{ "%.2g" | format(row.rel_diff * 100) }}%</td>
-            <td>{{ "agree" if row.agrees else "do not agree" }}</td>
-          </tr>
+  <main class="layout">
+    <section class="panel panel-inputs" aria-labelledby="inputs-heading">
+      <h2 id="inputs-heading" class="panel-heading">
+        <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3.4"/>
+          <path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6z"/>
+        </svg>
+        Input Parameters
+      </h2>
+
+      {% if errors %}
+      <section class="error-summary" role="alert">
+        <h3>Please fix the highlighted fields</h3>
+        <ul>
+          {% for message in errors.values() %}
+          <li>{{ message }}</li>
           {% endfor %}
-        </tbody>
-      </table>
-      <p class="verdict">
-        {% if analysis.comparison.agrees %}
-        The Thevenin and Nodal solutions agree within tolerance.
-        {% else %}
-        The Thevenin and Nodal solutions do not agree within tolerance.
-        {% endif %}
-      </p>
-      {% else %}
-      <p class="verdict">
-        Cross-check not applicable: in cut-off the transistor is not in forward-active
-        mode, so the nodal model (which assumes the input VBE) does not apply and
-        there is no common operating point to compare.
-      </p>
+        </ul>
+      </section>
       {% endif %}
-    {% endif %}</section>
+
+      {% set field_notes = {
+        "vcc": "Supply Voltage",
+        "r1": "Upper Divider",
+        "r2": "Lower Divider",
+        "rc": "Collector Resistor",
+        "re": "Emitter Resistor",
+        "beta": "Current Gain",
+        "vbe": "Base–Emitter Voltage",
+      } %}
+
+      <form method="post" action="/calculate">
+        <div class="form-rows">
+          {% for name, label, unit, default in fields %}
+          <div class="field{% if errors.get(name) %} field-invalid{% endif %}">
+            <label for="{{ name }}">
+              <span class="field-symbol">{{ label }}</span>
+              <span class="field-note">({{ field_notes[name] }})</span>
+            </label>
+            <input type="text" inputmode="decimal" id="{{ name }}" name="{{ name }}"
+                   value="{{ form.get(name, default) }}"{% if errors.get(name) %} aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
+            <span class="unit">{{ unit }}</span>
+            {% if errors.get(name) %}
+            <p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <button type="submit" class="calculate">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="5" y="3" width="14" height="18" rx="2"/>
+            <path d="M8 7h8M8 11h1M11.5 11h1M15 11h1M8 15h1M11.5 15h1M15 15h1M8 18h4"/>
+          </svg>
+          Calculate DC Bias
+        </button>
+        <p class="reset-row"><a href="/?blank=1">Reset form</a></p>
+      </form>
+    </section>
+
+    <section class="panel panel-diagram" aria-labelledby="diagram-heading">
+      <h2 id="diagram-heading" class="panel-heading">
+        <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="6" cy="6" r="2"/>
+          <circle cx="18" cy="6" r="2"/>
+          <circle cx="12" cy="18" r="2"/>
+          <path d="M7.7 7.3 11 16M16.3 7.3 13 16"/>
+        </svg>
+        Circuit: Common-Emitter Amplifier
+      </h2>
+
+      <figure class="diagram">
+        <svg class="schematic" viewBox="0 0 440 430" role="img" aria-labelledby="schematic-title schematic-desc">
+          <title id="schematic-title">Common-emitter amplifier with voltage-divider bias</title>
+          <desc id="schematic-desc">VCC supplies R1 and RC. R1 and R2 set the base voltage; RC connects to the collector and RE to the emitter of NPN transistor Q1.</desc>
+
+          <path class="wire" d="M160 55H240"/>
+          <path class="wire" d="M160 55V90"/>
+          <path class="wire" d="M240 55V95"/>
+          <path class="zigzag" d="M160 90v6l8 6-16 10 16 10-16 10 16 10-8 6v2"/>
+          <path class="zigzag" d="M240 95v6l8 6-16 10 16 10-16 10 16 10-8 6v2"/>
+
+          <path class="wire" d="M160 150V230"/>
+          <path class="wire" d="M160 230V295"/>
+          <path class="zigzag" d="M160 295v6l8 6-16 10 16 10-16 10 16 10-8 6v2"/>
+          <path class="wire" d="M160 355V385"/>
+
+          <path class="wire" d="M240 155V196"/>
+          <path class="wire" d="M240 264V300"/>
+          <path class="zigzag" d="M240 300v6l8 6-16 10 16 10-16 10 16 10-8 6v2"/>
+          <path class="wire" d="M240 360V385"/>
+
+          <path class="wire" d="M146 385H174"/>
+          <path class="wire" d="M151 391H169"/>
+          <path class="wire" d="M156 397H164"/>
+          <path class="wire" d="M226 385H254"/>
+          <path class="wire" d="M231 391H249"/>
+          <path class="wire" d="M236 397H244"/>
+
+          <circle class="transistor" cx="240" cy="230" r="34"/>
+          <path class="wire" d="M160 230H228"/>
+          <path class="wire" d="M228 212V248"/>
+          <path class="wire" d="M228 220L240 208V196"/>
+          <path class="wire" d="M228 240L240 252V264"/>
+          <polygon class="arrow" points="240,252 231,250 237,244"/>
+
+          <circle class="node" cx="240" cy="55" r="4"/>
+          <circle class="node" cx="160" cy="230" r="4"/>
+
+          <text x="252" y="50">V<tspan class="sub" dy="3">CC</tspan><tspan dy="-3"> = {{ form.get('vcc', '') }} V</tspan></text>
+          <text class="designator" x="132" y="112" text-anchor="end">R<tspan class="sub" dy="3">1</tspan></text>
+          <text class="value" x="132" y="131" text-anchor="end">{{ form.get('r1', '') }} kΩ</text>
+          <text class="designator" x="132" y="315" text-anchor="end">R<tspan class="sub" dy="3">2</tspan></text>
+          <text class="value" x="132" y="334" text-anchor="end">{{ form.get('r2', '') }} kΩ</text>
+          <text class="designator" x="272" y="112">R<tspan class="sub" dy="3">C</tspan></text>
+          <text class="value" x="272" y="131">{{ form.get('rc', '') }} kΩ</text>
+          <text class="designator" x="272" y="315">R<tspan class="sub" dy="3">E</tspan></text>
+          <text class="value" x="272" y="334">{{ form.get('re', '') }} kΩ</text>
+          <text class="designator" x="284" y="222">Q<tspan class="sub" dy="3">1</tspan></text>
+          <text class="value" x="284" y="240">NPN</text>
+          <text class="value" x="284" y="256">(β = {{ form.get('beta', '') }})</text>
+        </svg>
+      </figure>
+    </section>
+
+    <section class="panel panel-results" aria-labelledby="results-heading">
+      <div class="panel-heading-row">
+        <h2 id="results-heading" class="panel-heading">
+          <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 20V12M12 20V6M19 20V9"/>
+          </svg>
+          DC Bias Results
+        </h2>
+        {% if analysis %}
+        <span class="region-{{ analysis.region.value }}">{{ region_labels[analysis.region] }}</span>
+        {% endif %}
+      </div>
+
+      <div id="results">
+        {% if analysis %}
+        <table class="results-table">
+          <caption class="sr-only">Solved DC operating point</caption>
+          <tbody>
+            <tr><th scope="row">V<sub>B</sub></th><td>{{ format_quantity(analysis.point.vb_v, "vb") }}</td></tr>
+            <tr><th scope="row">V<sub>E</sub></th><td>{{ format_quantity(analysis.point.ve_v, "ve") }}</td></tr>
+            <tr><th scope="row">V<sub>C</sub></th><td>{{ format_quantity(analysis.point.vc_v, "vc") }}</td></tr>
+            <tr><th scope="row">V<sub>CE</sub></th><td>{{ format_quantity(analysis.point.vce_v, "vce") }}</td></tr>
+            <tr><th scope="row">I<sub>B</sub></th><td>{{ format_quantity(analysis.point.ib_a, "ib") }}</td></tr>
+            <tr><th scope="row">I<sub>C</sub></th><td>{{ format_quantity(analysis.point.ic_a, "ic") }}</td></tr>
+            <tr><th scope="row">I<sub>E</sub></th><td>{{ format_quantity(analysis.point.ie_a, "ie") }}</td></tr>
+          </tbody>
+        </table>
+        <p class="model">
+          Thevenin base model: V<sub>BB</sub> = {{ format_quantity(analysis.point.vbb_v, "vbb") }},
+          R<sub>B</sub> = {{ format_quantity(analysis.point.rb_ohm, "rb") }}.
+        </p>
+
+        {% if analysis.region.value == "forward_active" %}
+        {% set state = "ok" %}
+        {% elif analysis.region.value == "near_saturation" %}
+        {% set state = "warn" %}
+        {% elif analysis.region.value == "saturation" %}
+        {% set state = "error" %}
+        {% else %}
+        {% set state = "muted" %}
+        {% endif %}
+
+        <div class="status status-{{ state }}">
+          <p class="status-title">
+            {% if state == "ok" %}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.2 12.3 2.5 2.5 5.1-5.4"/></svg>
+            Active region approximation OK
+            {% elif state == "warn" %}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3z"/><path d="M12 9v5M12 17.2v.1"/></svg>
+            Near saturation
+            {% elif state == "error" %}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3z"/><path d="M12 9v5M12 17.2v.1"/></svg>
+            Saturation
+            {% else %}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.2v.1"/></svg>
+            Cut-off
+            {% endif %}
+          </p>
+          <p class="status-detail">
+            {% if analysis.region.value == "forward_active" %}
+            V<sub>CE</sub> = {{ format_quantity(analysis.point.vce_v, "vce") }} &gt; 0.2 V (transistor in active region)
+            {% else %}
+            {{ analysis.warning }}
+            {% endif %}
+          </p>
+        </div>
+
+        {% if analysis.comparison %}
+        <details class="crosscheck"{% if not analysis.comparison.agrees %} open{% endif %}>
+          <summary>
+            Cross-check: Thevenin vs Nodal
+            <span class="crosscheck-verdict{% if not analysis.comparison.agrees %} crosscheck-bad{% endif %}">{{ "agree" if analysis.comparison.agrees else "do not agree" }}</span>
+          </summary>
+          <div class="table-scroll">
+            <table class="compare-table">
+              <caption class="sr-only">Thevenin versus Nodal solution comparison</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Quantity</th>
+                  <th scope="col">Thevenin</th>
+                  <th scope="col">Nodal</th>
+                  <th scope="col">|Δ|</th>
+                  <th scope="col">Δ%</th>
+                  <th scope="col">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in analysis.comparison.rows %}
+                <tr>
+                  <th scope="row">{{ row.key | upper }}</th>
+                  <td>{{ format_quantity(row.reference, row.key) }}</td>
+                  <td>{{ format_quantity(row.candidate, row.key) }}</td>
+                  <td>{{ format_quantity(row.abs_diff, row.key) }}</td>
+                  <td>{{ "%.2g" | format(row.rel_diff * 100) }}%</td>
+                  <td>{{ "agree" if row.agrees else "do not agree" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="verdict">
+            {% if analysis.comparison.agrees %}
+            The Thevenin and Nodal solutions agree within tolerance.
+            {% else %}
+            The Thevenin and Nodal solutions do not agree within tolerance.
+            {% endif %}
+          </p>
+        </details>
+        {% else %}
+        <details class="crosscheck">
+          <summary>
+            Cross-check: Thevenin vs Nodal
+            <span class="crosscheck-verdict crosscheck-muted">not applicable</span>
+          </summary>
+          <p class="verdict">
+            In cut-off the transistor is not in forward-active mode, so the nodal model
+            (which assumes the input VBE) does not apply and there is no common operating
+            point to compare.
+          </p>
+        </details>
+        {% endif %}
+        {% else %}
+        <p class="results-empty">
+          Enter the bias values and select <strong>Calculate DC Bias</strong> to see the
+          operating point and the cross-check.
+        </p>
+        {% endif %}
+      </div>
+    </section>
   </main>
 </body>
 </html>
