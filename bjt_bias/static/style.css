@@ -1,21 +1,26 @@
 /* BJT common-emitter bias calculator — three-column lab layout, no build step. */
 
 :root {
-  --text: #1c2733;
-  --navy: #0b2b4a;
-  --muted: #5d6c7b;
-  --line: #d9e2ec;
-  --page-bg: #f4f8fc;
+  /* Suranaree University of Technology identity: orange, warm gold, warm ink. */
+  --text: #33261d;
+  --navy: #9a3d00;
+  --muted: #7b6758;
+  --line: #efdccb;
+  --page-bg: #fdfaf5;
   --panel-bg: #ffffff;
-  --soft: #f1f7fc;
-  --teal: #0d5f73;
-  --teal-dark: #094b5b;
+  --soft: #fff6ec;
+  --teal: #e65100;
+  --teal-dark: #bf3f00;
+  --orange-2: #f57c00;
+  --gold: #f9a825;
+  --gold-deep: #c98a00;
+  --gold-soft: #fff6dc;
   --ok: #1c7a3c;
   --ok-bg: #e7f5ea;
   --ok-line: #9fd3ab;
-  --warn: #865800;
-  --warn-bg: #fdf3d7;
-  --warn-line: #e6c36b;
+  --warn: #8a5a00;
+  --warn-bg: #fff3cf;
+  --warn-line: #e8c25f;
   --err: #9b1c14;
   --err-bg: #fde8e6;
   --err-line: #e8a9a2;
@@ -34,11 +39,42 @@ body {
   line-height: 1.45;
 }
 
+/* University watermark: a fixed, centred logo kept faint enough that all
+   text keeps full contrast. */
+.sut-watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.sut-watermark img {
+  width: min(640px, 78vw);
+  height: auto;
+  opacity: 0.055;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ---------- Header ---------- */
 
 .app-header {
+  position: relative;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--line);
+}
+
+.app-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--teal), var(--gold));
 }
 
 .app-header-inner {
@@ -65,8 +101,8 @@ body {
   width: 2.7rem;
   height: 2.7rem;
   border-radius: 8px;
-  background: #e7f0fa;
-  color: var(--navy);
+  background: #fdeee2;
+  color: var(--teal);
 }
 
 .brand-mark svg {
@@ -100,9 +136,10 @@ body {
   flex: none;
   margin: 0;
   padding: 0.5rem 0.85rem;
+  border: 1px solid #f3dfae;
   border-radius: 8px;
-  background: #e9f2fb;
-  color: var(--navy);
+  background: var(--gold-soft);
+  color: #7a3a00;
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.25;
@@ -113,7 +150,7 @@ body {
   width: 1.5rem;
   height: 1.5rem;
   fill: none;
-  stroke: currentColor;
+  stroke: var(--teal);
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -137,7 +174,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel-bg);
-  box-shadow: 0 1px 2px rgba(16, 42, 67, 0.05);
+  box-shadow: 0 1px 3px rgba(120, 60, 20, 0.07);
 }
 
 .panel-heading-row {
@@ -220,7 +257,7 @@ body {
 
 .field input:focus {
   border-color: var(--teal);
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--gold);
   outline-offset: 1px;
 }
 
@@ -231,7 +268,7 @@ body {
   height: 2.15rem;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #f8fbfd;
+  background: #fffaf3;
   color: var(--muted);
   font-size: 0.82rem;
 }
@@ -265,11 +302,11 @@ body {
 }
 
 .calculate:hover {
-  background: var(--teal-dark);
+  background: var(--orange-2);
 }
 
 .calculate:focus-visible {
-  outline: 2px solid var(--navy);
+  outline: 2px solid var(--gold-deep);
   outline-offset: 2px;
 }
 
@@ -308,28 +345,28 @@ body {
 .schematic .wire,
 .schematic .zigzag {
   fill: none;
-  stroke: #16202b;
+  stroke: #3b2a1e;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .schematic .transistor {
-  fill: #dbeafe;
-  stroke: #16202b;
+  fill: #ffe3cf;
+  stroke: #3b2a1e;
   stroke-width: 2;
 }
 
 .schematic .node {
-  fill: #16202b;
+  fill: #3b2a1e;
 }
 
 .schematic .arrow {
-  fill: #16202b;
+  fill: #3b2a1e;
 }
 
 .schematic text {
-  fill: #16202b;
+  fill: #3b2a1e;
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-size: 13.5px;
 }
@@ -462,7 +499,7 @@ body {
 }
 
 .crosscheck summary::marker {
-  color: var(--teal);
+  color: var(--gold-deep);
 }
 
 .crosscheck-verdict {
@@ -629,5 +666,11 @@ body {
 
   .field label {
     grid-column: 1 / -1;
+  }
+}
+
+@media print {
+  .sut-watermark {
+    display: none;
   }
 }
