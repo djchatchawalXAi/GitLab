@@ -1,0 +1,55 @@
+import pytest
+
+from bias import BiasInput, ValidationError, parse_input
+
+VALID = {
+    "vcc": "12", "r1": "47", "r2": "10", "rc": "2.2",
+    "re": "0.47", "beta": "150", "vbe": "0.7",
+}
+
+
+def test_parses_valid_values():
+    assert parse_input(VALID) == BiasInput(12.0, 47.0, 10.0, 2.2, 0.47, 150.0, 0.7)
+
+
+def test_accepts_whitespace_sign_and_scientific_notation():
+    inp = parse_input(dict(VALID, vcc=" 1.2e1 ", r1="+47"))
+    assert inp.vcc_v == 12.0
+    assert inp.r1_kohm == 47.0
+
+
+def test_accepts_beta_of_one():
+    assert parse_input(dict(VALID, beta="1")).beta == 1.0
+
+
+@pytest.mark.parametrize("field,value,message", [
+    ("vcc", "", "must be a number"),
+    ("vcc", "abc", "must be a number"),
+    ("vcc", "nan", "must be a number"),
+    ("vcc", "inf", "must be a number"),
+    ("vcc", "0", "greater than 0"),
+    ("r1", "0", "greater than 0"),
+    ("r2", "-1", "greater than 0"),
+    ("rc", "0", "greater than 0"),
+    ("re", "0", "greater than 0"),
+    ("beta", "0", "between 1 and 10000"),
+    ("beta", "10001", "between 1 and 10000"),
+    ("vbe", "0.3", "between 0.4 V and 0.9 V"),
+    ("vbe", "1.2", "between 0.4 V and 0.9 V"),
+])
+def test_rejects_invalid_values(field, value, message):
+    with pytest.raises(ValidationError) as info:
+        parse_input(dict(VALID, **{field: value}))
+    assert message in info.value.errors[field]
+
+
+def test_collects_every_error():
+    with pytest.raises(ValidationError) as info:
+        parse_input(dict(VALID, vcc="0", beta="0"))
+    assert set(info.value.errors) == {"vcc", "beta"}
+
+
+def test_reports_markup_as_a_field_error():
+    with pytest.raises(ValidationError) as info:
+        parse_input(dict(VALID, vcc="<script>alert(1)</script>"))
+    assert "vcc" in info.value.errors
