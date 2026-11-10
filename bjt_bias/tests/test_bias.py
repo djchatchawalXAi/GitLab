@@ -92,3 +92,72 @@ def test_huge_but_finite_values_stay_finite():
     p = solve_thevenin(BiasInput(1e6, 1e12, 1e12, 1e3, 1e3, 10000.0, 0.7))
     assert math.isfinite(p.vce_v)
     assert p.vce_v > 0
+
+from bias import compare, analyze, solve_nodal
+
+CASES = [
+    (12, 47, 10, 2.2, 0.47, 150, 0.7),
+    (12, 47, 10, 2.2, 0.47, 1, 0.7),
+    (5, 10, 2.2, 1, 0.1, 2, 0.7),
+    (15, 100, 22, 4.7, 1, 50, 0.65),
+    (9, 33, 6.8, 1.5, 0.22, 300, 0.75),
+]
+
+
+@pytest.mark.parametrize("case", CASES)
+def test_methods_agree(case):
+    inp = BiasInput(*case)
+    result = compare(solve_thevenin(inp), solve_nodal(inp))
+    assert result.agrees
+    assert max(row.rel_diff for row in result.rows) < 1e-9
+
+
+def test_nodal_respects_transistor_relations():
+    p = solve_nodal(GOLDEN)
+    assert p.vb_v - p.ve_v == pytest.approx(0.7)
+    assert p.ie_a == pytest.approx(p.ib_a + p.ic_a)
+    assert p.ic_a / p.ib_a == pytest.approx(150.0)
+
+
+def test_compare_detects_injected_error():
+    reference = solve_thevenin(GOLDEN)
+    candidate = replace(reference, ic_a=reference.ic_a * 1.01)
+    result = compare(reference, candidate)
+    assert not result.agrees
+    row = next(r for r in result.rows if r.key == "ic")
+    assert row.rel_diff == pytest.approx(0.01)
+
+
+def test_golden_analysis_is_forward_active_and_agrees():
+    a = analyze(GOLDEN)
+    assert a.region is Region.FORWARD_ACTIVE
+    assert a.warning is None
+    assert a.comparison is not None
+    assert a.comparison.agrees
+
+
+def test_cutoff_analysis_skips_cross_check():
+    a = analyze(BiasInput(12.0, 47.0, 1.0, 2.2, 0.47, 150.0, 0.7))
+    assert a.region is Region.CUTOFF
+    assert (a.point.ib_a, a.point.ic_a, a.point.ie_a) == (0.0, 0.0, 0.0)
+    assert a.point.vce_v == 12.0
+    assert a.comparison is None
+    assert a.warning
+
+
+def test_high_vbe_gives_cutoff_not_negative_current():
+    a = analyze(BiasInput(12.0, 47.0, 1.0, 2.2, 0.47, 150.0, 0.9))
+    assert a.region is Region.CUTOFF
+    assert a.point.ic_a == 0.0
+    # VBE above VCC is valid input and still yields cutoff, not a crash.
+    b = analyze(BiasInput(0.5, 47.0, 10.0, 2.2, 0.47, 150.0, 0.9))
+    assert b.region is Region.CUTOFF
+
+
+def test_saturation_and_near_saturation():
+    sat = analyze(BiasInput(12.0, 22.0, 47.0, 2.2, 0.1, 150.0, 0.7))
+    assert sat.region is Region.SATURATION
+    assert sat.warning
+    near = analyze(replace(GOLDEN, rc_kohm=3.9))
+    assert near.region is Region.NEAR_SATURATION
+    assert near.warning
