@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import pytest
 
@@ -164,3 +165,14 @@ def test_page_has_no_javascript(client):
     assert "onchange=" not in body
     assert "onclick=" not in body
     assert "onsubmit=" not in body
+
+
+def test_css_contract_has_radio_state_rules():
+    css = (Path(__file__).resolve().parent.parent / "static" / "style.css").read_text(encoding="utf-8")
+    for circuit in ("voltage-divider", "fixed-bias", "emitter-bias"):
+        assert f"#circuit-{circuit}:checked" in css
+    for token in ("for-all", "diagram-", "circuit-heading-", "results-for-",
+                  "results-placeholder-for-", "error-summary-for-",
+                  "reset-link-for-", "result-region-for-"):
+        assert token in css
+    assert "<script" not in css

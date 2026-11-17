@@ -212,6 +212,51 @@ body {
 
 /* ---------- Input form ---------- */
 
+.circuit-picker {
+  margin: 0 0 0.9rem;
+  padding: 0;
+  border: 0;
+}
+
+.circuit-picker legend {
+  margin: 0 0 0.45rem;
+  padding: 0;
+  color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.circuit-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-bg);
+  accent-color: var(--teal);
+  cursor: pointer;
+}
+
+.circuit-option + .circuit-option {
+  margin-top: 0.35rem;
+}
+
+.circuit-option input {
+  flex: none;
+  margin: 0;
+}
+
+.circuit-option:has(input:checked) {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.circuit-option:has(input:focus-visible) {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
+
 .form-rows {
   display: flex;
   flex-direction: column;
@@ -392,6 +437,12 @@ body {
   color: var(--muted);
   font-size: 0.9rem;
   text-align: center;
+}
+
+.result-circuit {
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .results-table {
@@ -628,6 +679,127 @@ body {
   white-space: nowrap;
 }
 
+/* ---------- Radio-driven visibility (CSS-only circuit switching) ----------
+   Without :has() support no circuit-specific element is hidden, so every
+   field still renders and the form still submits a valid circuit. */
+
+/* Fields */
+body:has(#circuit-voltage-divider:checked) .field:not(.for-all):not(.for-voltage-divider),
+body:has(#circuit-fixed-bias:checked) .field:not(.for-all):not(.for-fixed-bias),
+body:has(#circuit-emitter-bias:checked) .field:not(.for-all):not(.for-emitter-bias) {
+  display: none;
+}
+
+/* Diagrams */
+.diagram {
+  display: none;
+}
+
+.diagram-voltage-divider {
+  display: block;
+}
+
+body:has(#circuit-fixed-bias:checked) .diagram-voltage-divider,
+body:has(#circuit-emitter-bias:checked) .diagram-voltage-divider {
+  display: none;
+}
+
+body:has(#circuit-fixed-bias:checked) .diagram-fixed-bias {
+  display: block;
+}
+
+body:has(#circuit-emitter-bias:checked) .diagram-emitter-bias {
+  display: block;
+}
+
+/* Heading spans */
+.circuit-heading {
+  display: none;
+}
+
+.circuit-heading-voltage-divider {
+  display: inline;
+}
+
+body:has(#circuit-fixed-bias:checked) .circuit-heading-voltage-divider,
+body:has(#circuit-emitter-bias:checked) .circuit-heading-voltage-divider {
+  display: none;
+}
+
+body:has(#circuit-fixed-bias:checked) .circuit-heading-fixed-bias {
+  display: inline;
+}
+
+body:has(#circuit-emitter-bias:checked) .circuit-heading-emitter-bias {
+  display: inline;
+}
+
+/* Stale results and region badge */
+body:has(#circuit-fixed-bias:checked) .results-for-voltage-divider,
+body:has(#circuit-emitter-bias:checked) .results-for-voltage-divider,
+body:has(#circuit-voltage-divider:checked) .results-for-fixed-bias,
+body:has(#circuit-emitter-bias:checked) .results-for-fixed-bias,
+body:has(#circuit-voltage-divider:checked) .results-for-emitter-bias,
+body:has(#circuit-fixed-bias:checked) .results-for-emitter-bias,
+body:has(#circuit-fixed-bias:checked) .result-region-for-voltage-divider,
+body:has(#circuit-emitter-bias:checked) .result-region-for-voltage-divider,
+body:has(#circuit-voltage-divider:checked) .result-region-for-fixed-bias,
+body:has(#circuit-emitter-bias:checked) .result-region-for-fixed-bias,
+body:has(#circuit-voltage-divider:checked) .result-region-for-emitter-bias,
+body:has(#circuit-fixed-bias:checked) .result-region-for-emitter-bias {
+  display: none;
+}
+
+/* Placeholders */
+.results-placeholder {
+  display: none;
+  margin: 0;
+  padding: 1.75rem 0.9rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+body:has(#circuit-voltage-divider:checked) .results-placeholder-for-voltage-divider,
+body:has(#circuit-fixed-bias:checked) .results-placeholder-for-fixed-bias,
+body:has(#circuit-emitter-bias:checked) .results-placeholder-for-emitter-bias {
+  display: block;
+}
+
+/* Error summary */
+body:has(#circuit-fixed-bias:checked) .error-summary-for-voltage-divider,
+body:has(#circuit-emitter-bias:checked) .error-summary-for-voltage-divider,
+body:has(#circuit-voltage-divider:checked) .error-summary-for-fixed-bias,
+body:has(#circuit-emitter-bias:checked) .error-summary-for-fixed-bias,
+body:has(#circuit-voltage-divider:checked) .error-summary-for-emitter-bias,
+body:has(#circuit-fixed-bias:checked) .error-summary-for-emitter-bias {
+  display: none;
+}
+
+/* Reset links */
+.reset-link {
+  display: none;
+}
+
+.reset-link-for-voltage-divider {
+  display: inline;
+}
+
+body:has(#circuit-fixed-bias:checked) .reset-link-for-voltage-divider,
+body:has(#circuit-emitter-bias:checked) .reset-link-for-voltage-divider {
+  display: none;
+}
+
+body:has(#circuit-fixed-bias:checked) .reset-link-for-fixed-bias {
+  display: inline;
+}
+
+body:has(#circuit-emitter-bias:checked) .reset-link-for-emitter-bias {
+  display: inline;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1100px) {
@@ -660,6 +832,7 @@ body {
 }
 
 @media (max-width: 460px) {
+  /* The picker and its options are already stacked by default. */
   .field {
     grid-template-columns: minmax(0, 1fr) 3.1rem;
   }
