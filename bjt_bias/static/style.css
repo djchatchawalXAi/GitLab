@@ -680,8 +680,9 @@ body {
 }
 
 /* ---------- Radio-driven visibility (CSS-only circuit switching) ----------
-   Without :has() support no circuit-specific element is hidden, so every
-   field still renders and the form still submits a valid circuit. */
+   Without :has() support no field is hidden; the default voltage-divider
+   diagram, heading and reset link stay visible while the server still routes
+   and calculates from the submitted circuit. */
 
 /* Fields */
 body:has(#circuit-voltage-divider:checked) .field:not(.for-all):not(.for-voltage-divider),
