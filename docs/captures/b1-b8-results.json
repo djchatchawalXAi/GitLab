@@ -1,0 +1,140 @@
+{
+  "generatedAt": "2026-11-24T10:51:11.957Z",
+  "baseUrl": "http://127.0.0.1:5000",
+  "results": [
+    {
+      "id": "B1",
+      "name": "Lab 03 Voltage Divider Bias",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B1",
+      "name": "Lab 03 Fixed Bias",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B1",
+      "name": "Lab 03 Emitter Bias",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B2",
+      "name": "CE reference .op",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B2",
+      "name": "Engine and model provenance",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B3",
+      "name": "RE 1k -> 0.47k changes IC",
+      "status": "PASS",
+      "detail": "IC 1.324 mA -> 2.507 mA"
+    },
+    {
+      "id": "B3",
+      "name": "RE change moves AC gain",
+      "status": "PASS",
+      "detail": "gain 1.756 -> 3.723"
+    },
+    {
+      "id": "B4",
+      "name": "AC summary and cutoff units",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B4",
+      "name": "Bode axes and data",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B4",
+      "name": "Two AC plots rendered",
+      "status": "PASS",
+      "detail": "2 SVG plots"
+    },
+    {
+      "id": "B5",
+      "name": "Transient waveform and inversion",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B5",
+      "name": "Transient axes and traces",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B6",
+      "name": "20 mV peak / 2 kHz updates waveform",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B6",
+      "name": "Plot title reflects 2000 Hz",
+      "status": "PASS",
+      "detail": "all expected strings present"
+    },
+    {
+      "id": "B7",
+      "name": "RE=0 rejected without fake success",
+      "status": "PASS",
+      "detail": "validation error shown; no RUN OK and no stale DC table"
+    },
+    {
+      "id": "B7",
+      "name": "Unavailable engine badge",
+      "status": "PASS",
+      "detail": "badge: ngspice unavailable"
+    },
+    {
+      "id": "B7",
+      "name": "Unavailable engine fails clearly",
+      "status": "PASS",
+      "detail": "RUN FAILED with ngspice diagnostic; no fake success"
+    },
+    {
+      "id": "B8",
+      "name": "Desktop 1280px no horizontal overflow",
+      "status": "PASS",
+      "detail": "scrollWidth 1280 vs viewport 1280"
+    },
+    {
+      "id": "B8",
+      "name": "Mobile 390px no horizontal overflow",
+      "status": "PASS",
+      "detail": "scrollWidth 390 vs viewport 390"
+    },
+    {
+      "id": "B8",
+      "name": "Mobile key controls visible",
+      "status": "PASS",
+      "detail": "VCC x=53 w=226, button w=310"
+    },
+    {
+      "id": "B8",
+      "name": "Lab 03 mobile no horizontal overflow",
+      "status": "PASS",
+      "detail": "scrollWidth 390 vs viewport 390"
+    },
+    {
+      "id": "RUN",
+      "name": "No browser console errors",
+      "status": "PASS",
+      "detail": "none"
+    }
+  ],
+  "passed": 22,
+  "failed": 0
+}

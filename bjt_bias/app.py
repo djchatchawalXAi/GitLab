@@ -7,6 +7,9 @@ from flask import Flask, render_template, request
 
 from bias import (CircuitType, DEFAULT_CIRCUIT, Region, ValidationError,
                   analyze, parse_input)
+import plots
+from spice_engine import (AMPLIFIER_FIELDS, EngineUnavailable, SpiceError,
+                          find_ngspice, parse_amplifier_input, run_simulation)
 
 ALL_CIRCUITS = tuple(CircuitType)
 
@@ -78,6 +81,44 @@ def format_quantity(value_si: float, key: str) -> str:
     return f"{value_si * scale:.4g} {unit}"
 
 
+def format_frequency(value_hz: float | None) -> str:
+    """Return a frequency with an engineering prefix, or an honest fallback."""
+    if value_hz is None:
+        return "not determined in sweep range"
+    if value_hz >= 1e6:
+        return f"{value_hz / 1e6:.3g} MHz"
+    if value_hz >= 1e3:
+        return f"{value_hz / 1e3:.3g} kHz"
+    return f"{value_hz:.3g} Hz"
+
+
+def format_phase(value_deg: float) -> str:
+    """Return a phase in degrees."""
+    return f"{value_deg:.1f}°"
+
+
+def format_comparison(value: float, unit: str) -> str:
+    """Format an analytical/SPICE comparison value in a readable unit."""
+    if unit == "A":
+        if abs(value) < 1e-3:
+            return f"{value * 1e6:.4g} µA"
+        return f"{value * 1e3:.4g} mA"
+    return f"{value:.4g} V"
+
+
+def format_percent(value: float) -> str:
+    """Return a fractional difference as a percentage."""
+    if value == float("inf"):
+        return "—"
+    return f"{value * 100:.2f}%"
+
+
+def _amplifier_form(raw: Mapping[str, str], *, blank: bool = False) -> dict[str, str]:
+    """Return one value per Lab 04 field, preserving submitted text."""
+    return {field.name: ("" if blank else raw.get(field.name, field.default))
+            for field in AMPLIFIER_FIELDS}
+
+
 def resolve_circuit(value: str | None) -> CircuitType:
     """Resolve a query/form circuit value, falling back to the default."""
     try:
@@ -97,6 +138,15 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.jinja_env.globals["format_quantity"] = format_quantity
     app.jinja_env.globals["css_name"] = css_name
+    app.jinja_env.globals.update(
+        format_frequency=format_frequency,
+        format_phase=format_phase,
+        format_comparison=format_comparison,
+        format_percent=format_percent,
+        bode_magnitude_svg=plots.bode_magnitude_svg,
+        bode_phase_svg=plots.bode_phase_svg,
+        transient_svg=plots.transient_svg,
+    )
 
     @app.get("/")
     def index():
@@ -134,6 +184,47 @@ def create_app() -> Flask:
                                circuits=CIRCUIT_LABELS,
                                selected_circuit=inp.circuit,
                                result_circuit=inp.circuit)
+
+    @app.get("/amplifier")
+    def amplifier():
+        """Render the Lab 04 amplifier workbench."""
+        return render_template(
+            "amplifier.html",
+            fields=AMPLIFIER_FIELDS,
+            form=_amplifier_form({}, blank=request.args.get("blank") == "1"),
+            errors={}, result=None, run_error=None, engine=find_ngspice(),
+        )
+
+    @app.post("/amplifier/simulate")
+    def amplifier_simulate():
+        """Validate the amplifier form, run ngspice, and render real results."""
+        raw = request.form.to_dict()
+        form = _amplifier_form(raw)
+        engine = find_ngspice()
+        try:
+            inp = parse_amplifier_input(raw)
+        except ValidationError as error:
+            return render_template(
+                "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
+                errors=error.errors, result=None, run_error=None, engine=engine,
+            )
+        if not engine.available:
+            return render_template(
+                "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
+                errors={}, result=None,
+                run_error=EngineUnavailable(engine.detail), engine=engine,
+            )
+        try:
+            result = run_simulation(inp, engine=engine)
+        except SpiceError as error:
+            return render_template(
+                "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
+                errors={}, result=None, run_error=error, engine=engine,
+            )
+        return render_template(
+            "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
+            errors={}, result=result, run_error=None, engine=engine,
+        )
 
     return app
 

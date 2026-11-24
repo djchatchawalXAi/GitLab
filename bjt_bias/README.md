@@ -1,13 +1,16 @@
-# BJT DC Bias Calculator (ENG29 2121 — Lab 03)
+# BJT DC Bias + Amplifier Simulator (ENG29 2121 — Lab 03 + Lab 04)
 
-A small Flask web app that solves the DC operating point of three NPN
-common-emitter bias circuits:
+A small Flask web app in two parts:
 
-- **Voltage Divider Bias**
-- **Fixed Bias**
-- **Emitter Bias**
+- **Lab 03 — DC bias calculator.** Solves the DC operating point of three NPN
+  common-emitter bias circuits: **Voltage Divider Bias**, **Fixed Bias** and
+  **Emitter Bias**. No ngspice required.
+- **Lab 04 — amplifier simulator.** Runs a real ngspice DC operating point,
+  AC sweep and transient analysis for the reference CE voltage-divider
+  amplifier, and renders the results as tables and server-side SVG Bode and
+  waveform plots. See [Lab 04 — amplifier simulator](#lab-04--amplifier-simulator).
 
-The circuit is chosen with a radio group. The matching resistor inputs and
+The Lab 03 circuit is chosen with a radio group. The matching resistor inputs and
 schematic switch instantly using CSS only — no JavaScript, no CDN, no build
 step, no database. Every result is shown with an explicit unit, the app warns
 when the transistor is not in forward-active mode, and the answer is
@@ -38,9 +41,16 @@ Server-rendered HTML, no JavaScript, no CDN, no build step, no database.
 ## Requirements
 
 - **Python 3.12 or newer.** The original project targeted 3.12; the current
-  suite was verified on 3.15.2.
+  suite was verified on 3.12.7.
 - The packages in `requirements.txt`: `Flask>=3.0,<4` and `pytest>=8.0,<9`.
 - A browser on the same machine.
+- **ngspice (Lab 04 only).** The app was verified with the ngspice 46 console
+  build (`ngspice_con.exe`). The GUI build also works. If `ngspice_con` is not
+  on `PATH`, set `NGSPICE_BIN` to the executable path (see below). Without
+  ngspice the Lab 03 page still works; the Lab 04 page shows an honest
+  “ngspice unavailable” badge and a clear error instead of fake results.
+- **Node 20+ (optional, for browser verification only).** The B1–B8 harness
+  uses Playwright 1.65.1 and bundled Chromium.
 
 ## Setup
 
@@ -51,13 +61,32 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
+### ngspice setup (Lab 04)
+
+Install ngspice, or unpack a portable build, then point `NGSPICE_BIN` at
+`ngspice_con.exe`. For this machine the verified binary lives outside the repo:
+
+```powershell
+$env:NGSPICE_BIN = "$env:TEMP\opencode\ngspice46\Spice64\bin\ngspice_con.exe"
+```
+
+`NGSPICE_BIN` may be either the executable or its containing directory. If it
+is not set, the adapter also checks `PATH`, `C:\Spice64\bin\` and common
+`Program Files` locations. The app never invents a version: it reads
+`Spice64/VERSION` when present and otherwise shows “unknown”.
+
+The console build prints harmless “code model … couldn’t be loaded” warnings
+because its optional XSPICE libraries are absent. Runs still exit 0; those
+lines are filtered from the log excerpt shown in the UI.
+
 ## Run
 
 ```powershell
 .\.venv\Scripts\python.exe app.py
 ```
 
-Then open <http://127.0.0.1:5000> in a browser.
+Then open <http://127.0.0.1:5000> in a browser. The Lab 04 page is at
+<http://127.0.0.1:5000/amplifier>.
 
 The form is prefilled with the shared defaults below, so all three circuits
 run immediately. Selecting a circuit only changes which fields and schematic
@@ -69,6 +98,8 @@ Routes:
 | --- | --- | --- |
 | `/` | GET | Render the input form. `/?circuit=<circuit>` pre-selects a radio; `/?blank=1` clears the numeric fields. |
 | `/calculate` | POST | Validate the posted fields and render the results or the field errors on the same page. |
+| `/amplifier` | GET | Render the Lab 04 amplifier workbench. `?blank=1` clears it. |
+| `/amplifier/simulate` | POST | Validate the amplifier form, run one real ngspice job, and render the DC/AC/transient results or a clear error. |
 
 An unknown `circuit` on `GET` falls back to Voltage Divider Bias. An unknown
 `circuit` on `POST` is a form error, not a server error. A `POST` with no
@@ -84,7 +115,121 @@ From `bjt_bias/`:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected: `80 passed`.
+Expected: **119 passed** (80 Lab 03 + 39 Lab 04). The Lab 04 integration
+tests skip themselves with a clear reason when no ngspice executable is
+available, so the analytical Lab 03 suite still runs on a machine without
+ngspice.
+
+## Lab 04 — amplifier simulator
+
+### Circuit and defaults
+
+One reference topology, the common-emitter voltage divider with an
+**unbypassed** emitter resistor:
+
+| Element | Default |
+| --- | --- |
+| VCC | 12 V |
+| R1 / R2 | 100 kΩ / 22 kΩ |
+| RC / RE / RL | 2.2 kΩ / 1 kΩ / 10 kΩ |
+| Cin / Cout | 10 µF / 10 µF |
+| Source | 10 mV peak sine, 1 kHz |
+| Transistor | `Q2N3904` NPN Gummel-Poon |
+
+### What a run returns
+
+- **DC operating point (`.op`):** VB, VE, VC, VCE, IC, IB, IE and the circuit
+  state (Forward active / Near saturation / Saturation). Currents are reported
+  as magnitudes from ngspice device vectors, and the UI states that SPICE's
+  internal emitter-current sign is negative. A separate **Analytical
+  reference** table compares `bias.py` (β = 150, VBE = 0.700 V, no Early
+  effect) with SPICE quantity by quantity.
+- **AC small-signal (`.ac`):** magnitude in dB and phase in degrees against a
+  log frequency axis, with the Vin reference stated explicitly. The −3 dB
+  cutoffs are measured from the sweep; when one lies outside the sweep the UI
+  says “not determined in sweep range”.
+- **Transient (`.tran`):** real time-domain Vin and Vout waveforms, measured
+  peak amplitudes, gain, phase difference and an explicit inverted / not
+  inverted verdict.
+
+The default AC sweep is 1 Hz to 1 GHz with 20 points per decade so both the
+low and high −3 dB corners are inside the sweep. Phase is unwrapped for
+plotting, so a genuine −180° crossing is not drawn as a false wrap line.
+
+### Provenance and safety
+
+Every run gets its own temporary working directory and is executed with
+`subprocess.run([...])`, never `shell=True`, under a timeout. Inputs are
+validated before a netlist is generated (positive component values, frequency
+and sweep/time-step constraints, `RE > 0`, at least one decade of AC sweep).
+The result carries the engine path, version, model name/source, netlist,
+command, run ID, start time, duration and exit code. Missing engine, non-zero
+exit, empty output, timeout and invalid input each produce a distinct error;
+none of them leave a stale graph or a fake success badge behind.
+
+### Analytical vs. SPICE
+
+The Lab 03 models (Fixed, Emitter, Voltage Divider) are unchanged and remain
+clearly labelled **Analytical reference**. Only the Voltage Divider solver is
+used for the Lab 04 comparison, and only for the DC operating point. See
+[`../docs/validation.md`](../docs/validation.md) for the measured comparison,
+model differences and limitations.
+
+### Browser verification (B1–B8)
+
+The harness lives at [`../scripts/verify_lab04.mjs`](../scripts/verify_lab04.mjs)
+and expects the app on port 5000 plus a second instance with a broken
+`NGSPICE_BIN` on port 5001:
+
+```powershell
+# terminal 1 — working engine
+$env:NGSPICE_BIN = "...\ngspice_con.exe"
+.\bjt_bias\.venv\Scripts\python.exe -c "from app import create_app; create_app().run(port=5000)"
+
+# terminal 2 — unavailable engine
+$env:NGSPICE_BIN = "...\does-not-exist\ngspice_con.exe"
+.\bjt_bias\.venv\Scripts\python.exe -c "from app import create_app; create_app().run(port=5001)"
+
+# terminal 3
+npm install playwright@1.65.1
+npx playwright install chromium
+node scripts/verify_lab04.mjs docs/captures
+```
+
+**Playwright MCP was not available in the verification environment.** The
+cases were therefore executed with the real Playwright 1.65.1 library and
+bundled Chromium, not with an MCP server; this is stated again in
+`docs/validation.md`. Results: **22/22 PASS, 0 FAIL**, no console errors.
+Screenshots and the machine-readable log are in `docs/captures/`.
+
+### UI review
+
+Impeccable 4.10.0 was installed project-scope with
+`npx impeccable install --providers=opencode --scope=project --project -y`
+and used to review the workbench at 1280 px and 390 px. Two detector findings
+remain and were judged false positives: a flat-type-hierarchy warning because
+the Jinja `<link>` cannot be resolved by the detector, and a side-tab warning
+on the pre-existing Lab 03 header stripe. Both are documented in
+`docs/validation.md`; the Lab 03 design was not changed to silence them.
+
+### How the AI change was checked
+
+- Full suite: **119 passed** (80 Lab 03 tests untouched + 39 Lab 04).
+- Real Chromium: **22/22 B1–B8 checks PASS**, including a real `.op`, `.ac`
+  and `.tran` run, a RE change, an amplitude/frequency change, RE = 0
+  validation, a missing-engine server, and 1280/390 px layouts.
+- `git status` was audited before committing; `.venv/`, `.env`, API keys and
+  per-run ngspice artifacts are not tracked.
+
+### What the student should verify
+
+The AI wrote the adapter, SVG plotting, UI, tests and validation record. The
+student should confirm the embedded 2N3904 card matches the course model,
+re-derive the DC point and midband gain by hand, compare against bench
+measurements, and re-run `pytest` plus `scripts/verify_lab04.mjs` on their own
+machine and ngspice install. The full evidence table is in
+[`../docs/validation.md`](../docs/validation.md).
+
 
 ## Circuits
 
@@ -362,19 +507,31 @@ circuit was posted. The page needs no JavaScript.
 
 ```
 bjt_bias/
-  app.py              # create_app(); GET / ; POST /calculate ; dev main
+  app.py              # create_app(); Lab 03 routes + /amplifier routes
   bias.py             # validation, closed-form solvers, nodal solvers, compare
+  spice_engine.py     # Lab 04 validation, netlist, ngspice runner, parsers
+  plots.py            # server-rendered SVG Bode and transient charts
   templates/
-    index.html        # one page: picker, form, three schematics, results
+    index.html        # Lab 03: picker, form, three schematics, results
+    amplifier.html    # Lab 04: grouped inputs, DC/AC/transient results
   static/
-    style.css         # plain CSS, no build step
+    style.css         # plain CSS, no build step (Lab 03 + Lab 04 sections)
     sut-logo.svg      # SUT watermark used by the header/background
   tests/
     test_bias.py      # validation, solving, classification, comparison
     test_app.py       # routes, rendering, escaping, CSS contract
+    test_spice_engine.py  # validation, netlist, parsers, real ngspice runs
+    test_amplifier_app.py # amplifier routes, error states, no-JS contract
   requirements.txt    # Flask and pytest with version bounds
   pytest.ini          # pythonpath = . ; testpaths = tests
   README.md           # this file
+
+docs/
+  validation.md       # Lab 04 B1-B8 evidence, model, limitations
+  captures/           # B1-B8 screenshots and b1-b8-results.json
+
+scripts/
+  verify_lab04.mjs    # Playwright B1-B8 harness
 ```
 
 `bias.py` holds the engineering logic as pure functions and imports no
