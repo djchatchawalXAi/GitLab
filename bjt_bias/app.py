@@ -119,6 +119,15 @@ def _amplifier_form(raw: Mapping[str, str], *, blank: bool = False) -> dict[str,
             for field in AMPLIFIER_FIELDS}
 
 
+ANALYSIS_VIEWS = ("all", "dc", "ac", "tran")
+
+
+def resolve_view(value: str | None) -> str:
+    """Return a valid result-view mode, falling back to all results."""
+    text = (value or "").strip().lower()
+    return text if text in ANALYSIS_VIEWS else "all"
+
+
 def resolve_circuit(value: str | None) -> CircuitType:
     """Resolve a query/form circuit value, falling back to the default."""
     try:
@@ -193,6 +202,7 @@ def create_app() -> Flask:
             fields=AMPLIFIER_FIELDS,
             form=_amplifier_form({}, blank=request.args.get("blank") == "1"),
             errors={}, result=None, run_error=None, engine=find_ngspice(),
+            view=resolve_view(request.args.get("view")),
         )
 
     @app.post("/amplifier/simulate")
@@ -201,18 +211,21 @@ def create_app() -> Flask:
         raw = request.form.to_dict()
         form = _amplifier_form(raw)
         engine = find_ngspice()
+        view = resolve_view(raw.get("view"))
         try:
             inp = parse_amplifier_input(raw)
         except ValidationError as error:
             return render_template(
                 "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
                 errors=error.errors, result=None, run_error=None, engine=engine,
+                view=view,
             )
         if not engine.available:
             return render_template(
                 "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
                 errors={}, result=None,
                 run_error=EngineUnavailable(engine.detail), engine=engine,
+                view=view,
             )
         try:
             result = run_simulation(inp, engine=engine)
@@ -220,10 +233,12 @@ def create_app() -> Flask:
             return render_template(
                 "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
                 errors={}, result=None, run_error=error, engine=engine,
+                view=view,
             )
         return render_template(
             "amplifier.html", fields=AMPLIFIER_FIELDS, form=form,
             errors={}, result=result, run_error=None, engine=engine,
+            view=view,
         )
 
     return app

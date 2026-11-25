@@ -130,6 +130,26 @@ def test_parse_ac_table_measures_gain_phase_and_cutoffs():
     assert "above the sweep stop" in ac.cutoff_note
 
 
+def test_parse_ac_table_exposes_linear_gain_per_point():
+    headers = ["frequency", "real(v(out))", "imag(v(out))",
+               "real(v(in))", "imag(v(in))"]
+    rows = []
+    for frequency, magnitude, phase_deg in (
+        (10.0, 0.5, -120.0),
+        (1000.0, 1.7657, -179.87),
+        (1e7, 1.5, -240.0),
+    ):
+        phase = math.radians(phase_deg)
+        rows.append([frequency,
+                     magnitude * 0.01 * math.cos(phase),
+                     magnitude * 0.01 * math.sin(phase),
+                     0.01, 0.0])
+    ac = se.parse_ac_table(headers, rows, reference_hz=1000.0)
+    assert len(ac.gain_vv) == len(ac.frequencies_hz)
+    assert ac.gain_vv[1] == pytest.approx(1.7657, rel=1e-4)
+    assert ac.gain_vv[1] == pytest.approx(10 ** (ac.gain_db[1] / 20.0), rel=1e-12)
+
+
 def test_parse_ac_table_reports_cutoff_outside_sweep():
     headers = ["frequency", "real(v(out))", "imag(v(out))",
                "real(v(in))", "imag(v(in))"]
@@ -158,6 +178,32 @@ def test_parse_tran_table_recovers_amplitude_and_inversion():
     assert tran.gain == pytest.approx(1.8, rel=1e-3)
     assert abs(abs(tran.phase_diff_deg) - 180.0) < 1.0
     assert tran.inverted is True
+
+
+def test_parse_tran_table_distinguishes_clean_and_clipped_waveforms():
+    headers = ["time", "v(in)", "v(out)"]
+    frequency = 1000.0
+    samples = 400
+    clean_rows = []
+    clipped_rows = []
+    for index in range(samples):
+        time = index / (frequency * 100)
+        vin = 0.010 * math.sin(2 * math.pi * frequency * time)
+        clean = 0.018 * math.sin(2 * math.pi * frequency * time + math.pi)
+        clipped = max(-0.012, min(0.012, clean))
+        clean_rows.append([time, vin, clean])
+        clipped_rows.append([time, vin, clipped])
+
+    clean = se.parse_tran_table(headers, clean_rows, frequency_hz=frequency,
+                                tran_stop_ms=4.0)
+    clipped = se.parse_tran_table(headers, clipped_rows, frequency_hz=frequency,
+                                  tran_stop_ms=4.0)
+
+    assert clean.clipped is False
+    assert clean.distortion_pct < 1.0
+    assert clipped.clipped is True
+    assert clipped.distortion_pct > 5.0
+    assert "clipping" in clipped.clipping_note.lower()
 
 
 def test_engine_info_reports_availability_honestly():
@@ -220,6 +266,15 @@ def test_real_ngspice_re_change_moves_the_operating_point():
     assert changed.dc.ve_v < baseline.dc.ve_v
     assert changed.dc.ic_a > baseline.dc.ic_a
     assert abs(changed.ac.reference_gain - baseline.ac.reference_gain) > 0.05
+
+
+@requires_ngspice
+def test_real_ngspice_overdrive_reports_clipping():
+    inp = se.parse_amplifier_input(dict(VALID, re="0.1", amp_mv="300"))
+    result = se.run_simulation(inp, timeout=60)
+    assert result.tran.clipped is True
+    assert result.tran.distortion_pct > 5.0
+    assert "clipping" in result.tran.clipping_note.lower()
 
 
 @requires_ngspice

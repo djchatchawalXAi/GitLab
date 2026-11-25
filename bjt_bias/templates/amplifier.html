@@ -6,6 +6,12 @@
   <title>Lab 04: BJT Amplifier Simulator</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+{% macro qty(text) -%}
+  {%- set parts = text.split(' ') -%}
+  {%- if parts|length > 1 -%}
+  <span class="qty-value">{{ parts[:-1] | join(' ') }}</span><span class="unit-chip">{{ parts[-1] }}</span>
+  {%- else -%}{{ text }}{%- endif -%}
+{%- endmacro %}
 <body>
   <div class="sut-watermark" aria-hidden="true">
     <img src="{{ url_for('static', filename='sut-logo.svg') }}" alt="">
@@ -44,13 +50,10 @@
           </svg>
           Amplifier Inputs
         </h2>
-        <span class="engine-badge {% if engine.available %}engine-ok{% else %}engine-bad{% endif %}">
-          {{ engine.label }}
-        </span>
       </div>
 
       {% if errors %}
-      <section class="error-summary" role="alert">
+      <section class="error-summary" role="alert" aria-live="assertive">
         <h3>Please fix the highlighted fields</h3>
         <ul>
           {% for message in errors.values() %}
@@ -60,12 +63,22 @@
       </section>
       {% endif %}
 
-      <form method="post" action="{{ url_for('amplifier_simulate') }}">
-        {% for group in ["Device & supply", "Coupling & load", "Source", "Analysis sweep", "Transient"] %}
+      <form id="sim-form" method="post" action="{{ url_for('amplifier_simulate') }}">
+        {% set form_groups = [
+          ("DC Bias Parameters",
+           "Supply rail and the resistors that set the quiescent operating point.",
+           ["vcc", "r1", "r2", "rc", "re"]),
+          ("Signal, Load & Analysis Parameters",
+           "Coupling, source, Bode sweep and transient controls.",
+           ["rl", "cin", "cout", "amp_mv", "freq_hz", "ac_start", "ac_stop",
+            "ac_ppd", "tran_stop_ms", "tran_step_us"])
+        ] %}
+        {% for title, note, names in form_groups %}
         <fieldset class="input-group">
-          <legend>{{ group }}</legend>
+          <legend><span class="step-no">{{ loop.index }}</span> {{ title }}</legend>
+          <p class="group-note">{{ note }}</p>
           <div class="form-rows">
-            {% for field in fields if field.group == group %}
+            {% for field in fields if field.name in names %}
             <div class="field{% if errors.get(field.name) %} field-invalid{% endif %}">
               <label for="amp-{{ field.name }}">
                 <span class="field-symbol">{{ field.label }}</span>
@@ -73,7 +86,7 @@
               </label>
               <input type="text" inputmode="decimal" id="amp-{{ field.name }}" name="{{ field.name }}"
                      value="{{ form.get(field.name, field.default) }}"{% if errors.get(field.name) %} aria-invalid="true" aria-describedby="amp-{{ field.name }}-error"{% endif %}>
-              <span class="unit">{{ field.unit }}</span>
+              <span class="unit unit-badge">{{ field.unit }}</span>
               {% if errors.get(field.name) %}
               <p class="field-error" id="amp-{{ field.name }}-error">{{ errors[field.name] }}</p>
               {% endif %}
@@ -82,17 +95,24 @@
           </div>
         </fieldset>
         {% endfor %}
-
-        <button type="submit" class="calculate">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 19V5M4 19h16M7 15l3-4 3 2 4-6"/>
-          </svg>
-          Run SPICE Simulation
-        </button>
-        <p class="reset-row">
-          <a class="reset-link" href="{{ url_for('amplifier', blank=1) }}">Reset form</a>
-        </p>
       </form>
+    </section>
+
+    <section class="panel panel-setup" aria-labelledby="amp-setup-heading">
+      <div class="panel-heading-row">
+        <h2 id="amp-setup-heading" class="panel-heading">
+          <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="6" cy="6" r="2"/>
+            <circle cx="18" cy="6" r="2"/>
+            <circle cx="12" cy="18" r="2"/>
+            <path d="M7.7 7.3 11 16M16.3 7.3 13 16"/>
+          </svg>
+          Circuit &amp; Analysis
+        </h2>
+        <span class="engine-badge {% if engine.available %}engine-ok{% else %}engine-bad{% endif %}">
+          {{ engine.label }}
+        </span>
+      </div>
 
       <figure class="diagram amp-diagram">
         <svg class="schematic amp-schematic" viewBox="0 0 480 310" role="img" aria-labelledby="amp-schematic-title amp-schematic-desc">
@@ -166,15 +186,45 @@
           Reference CE stage: unbypassed R<sub>E</sub>, 10 µF coupling, 2N3904.
         </figcaption>
       </figure>
+
+      <fieldset class="input-group mode-group">
+        <legend><span class="step-no">3</span> Analysis Mode</legend>
+        <p class="group-note" id="mode-help">
+          One run produces all three SPICE analyses. Choose which result sections to show.
+        </p>
+        <div class="mode-options" role="radiogroup" aria-describedby="mode-help">
+          {% for value, label, detail in [
+            ("all", "All results", "DC + AC + transient"),
+            ("dc", "DC bias", "SPICE .op + analytical"),
+            ("ac", "AC Bode", "SPICE .ac"),
+            ("tran", "Transient", "SPICE .tran")
+          ] %}
+          <label class="mode-option">
+            <input type="radio" name="view" id="view-{{ value }}" value="{{ value }}" form="sim-form"{% if view == value %} checked{% endif %}>
+            <span><strong>{{ label }}</strong><small>{{ detail }}</small></span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <button type="submit" form="sim-form" class="calculate">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V5M4 19h16M7 15l3-4 3 2 4-6"/>
+        </svg>
+        Run SPICE Simulation
+      </button>
+      <p class="reset-row">
+        <a class="reset-link" href="{{ url_for('amplifier', blank=1) }}">Reset form</a>
+      </p>
     </section>
 
-    <section class="panel panel-amp-results" aria-labelledby="amp-results-heading">
+    <section class="panel panel-amp-results" aria-labelledby="amp-results-heading" aria-live="polite">
       <div class="panel-heading-row">
         <h2 id="amp-results-heading" class="panel-heading">
           <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3 12h4l2-6 4 12 2-6h6"/>
           </svg>
-          SPICE Results
+          SPICE Simulation Results
         </h2>
         {% if result %}
         <span class="run-badge run-ok">RUN OK · ngspice {{ result.provenance.engine_version or "" }}</span>
@@ -184,7 +234,7 @@
       </div>
 
       {% if run_error %}
-      <section class="run-error" role="alert">
+      <section class="run-error" role="alert" aria-live="assertive">
         <h3>Simulation did not run</h3>
         <p>{{ run_error.message }}</p>
         {% if run_error.log_tail %}
@@ -210,30 +260,35 @@
         <p class="provenance-note">{{ result.provenance.model_source }}</p>
       </div>
 
-      <section class="result-block" aria-labelledby="dc-heading">
+      <div class="result-legend" aria-label="Result sources">
+        <span class="legend-item legend-analytical">Analytical Approximation</span>
+        <span class="legend-item legend-spice">SPICE Simulation · real ngspice</span>
+      </div>
+
+      <section class="result-block block-dc" aria-labelledby="dc-heading">
         <div class="result-block-head">
-          <h3 id="dc-heading">DC operating point <span class="source-tag">SPICE .op</span></h3>
+          <h3 id="dc-heading">DC operating point <span class="source-tag">SPICE Simulation · .op</span></h3>
           <span class="state-badge state-{{ result.dc.state | lower | replace(' ', '-') }}">{{ result.dc.state }}</span>
         </div>
         <div class="table-scroll">
           <table class="results-table">
             <caption class="sr-only">SPICE DC operating point of the CE amplifier</caption>
             <tbody>
-              <tr><th scope="row">V<sub>B</sub></th><td>{{ format_quantity(result.dc.vb_v, "vb") }}</td></tr>
-              <tr><th scope="row">V<sub>E</sub></th><td>{{ format_quantity(result.dc.ve_v, "ve") }}</td></tr>
-              <tr><th scope="row">V<sub>C</sub></th><td>{{ format_quantity(result.dc.vc_v, "vc") }}</td></tr>
-              <tr><th scope="row">V<sub>CE</sub></th><td>{{ format_quantity(result.dc.vce_v, "vce") }}</td></tr>
-              <tr><th scope="row">I<sub>C</sub></th><td>{{ format_quantity(result.dc.ic_a, "ic") }}</td></tr>
-              <tr><th scope="row">I<sub>B</sub></th><td>{{ format_quantity(result.dc.ib_a, "ib") }}</td></tr>
-              <tr><th scope="row">I<sub>E</sub></th><td>{{ format_quantity(result.dc.ie_a, "ie") }}</td></tr>
+              <tr><th scope="row">V<sub>B</sub></th><td>{{ qty(format_quantity(result.dc.vb_v, "vb")) }}</td></tr>
+              <tr><th scope="row">V<sub>E</sub></th><td>{{ qty(format_quantity(result.dc.ve_v, "ve")) }}</td></tr>
+              <tr><th scope="row">V<sub>C</sub></th><td>{{ qty(format_quantity(result.dc.vc_v, "vc")) }}</td></tr>
+              <tr><th scope="row">V<sub>CE</sub></th><td>{{ qty(format_quantity(result.dc.vce_v, "vce")) }}</td></tr>
+              <tr><th scope="row">I<sub>C</sub></th><td>{{ qty(format_quantity(result.dc.ic_a, "ic")) }}</td></tr>
+              <tr><th scope="row">I<sub>B</sub></th><td>{{ qty(format_quantity(result.dc.ib_a, "ib")) }}</td></tr>
+              <tr><th scope="row">I<sub>E</sub></th><td>{{ qty(format_quantity(result.dc.ie_a, "ie")) }}</td></tr>
             </tbody>
           </table>
         </div>
         <p class="model">Currents are reported as magnitudes from ngspice device vectors; SPICE's internal emitter-current sign is negative.</p>
       </section>
 
-      <section class="result-block" aria-labelledby="compare-heading">
-        <h3 id="compare-heading">Analytical reference <span class="source-tag source-tag-analytical">bias.py</span></h3>
+      <section class="result-block result-block-analytical block-dc" aria-labelledby="compare-heading">
+        <h3 id="compare-heading">Analytical Approximation <span class="source-tag source-tag-analytical">bias.py</span></h3>
         <div class="table-scroll">
           <table class="compare-table">
             <caption class="sr-only">Analytical reference versus SPICE operating point</caption>
@@ -244,9 +299,9 @@
               {% for row in result.comparison_rows %}
               <tr>
                 <th scope="row">{{ row.key | upper }}</th>
-                <td>{{ format_comparison(row.analytical, row.unit) }}</td>
-                <td>{{ format_comparison(row.spice, row.unit) }}</td>
-                <td>{{ format_comparison(row.abs_diff, row.unit) }}</td>
+                <td>{{ qty(format_comparison(row.analytical, row.unit)) }}</td>
+                <td>{{ qty(format_comparison(row.spice, row.unit)) }}</td>
+                <td>{{ qty(format_comparison(row.abs_diff, row.unit)) }}</td>
                 <td>{{ format_percent(row.rel_diff) }}</td>
               </tr>
               {% endfor %}
@@ -256,16 +311,16 @@
         <p class="verdict">{{ result.comparison_note }}</p>
       </section>
 
-      <section class="result-block" aria-labelledby="ac-heading">
+      <section class="result-block block-ac" aria-labelledby="ac-heading">
         <div class="result-block-head">
-          <h3 id="ac-heading">AC small-signal <span class="source-tag">SPICE .ac</span></h3>
+          <h3 id="ac-heading">AC small-signal <span class="source-tag">SPICE Simulation · .ac</span></h3>
           <span class="source-tag source-tag-note">Vin reference: source node <code>in</code>, {{ format_quantity(result.ac.vin_reference_v, "vb") }} AC peak</span>
         </div>
         <div class="metric-grid">
-          <div class="metric"><span class="metric-label">Gain at {{ result.ac.reference_frequency_hz | int }} Hz</span><span class="metric-value">{{ "%.4g" | format(result.ac.reference_gain) }}×</span><span class="metric-note">{{ "%.2f" | format(result.ac.reference_gain_db) }} dB</span></div>
+          <div class="metric"><span class="metric-label">Gain at {{ result.ac.reference_frequency_hz | int }} Hz</span><span class="metric-value">{{ "%.4g" | format(result.ac.reference_gain) }}×</span><span class="metric-note">{{ "%.2f" | format(result.ac.reference_gain_db) }} <span class="unit-chip">dB</span></span></div>
           <div class="metric"><span class="metric-label">Phase at {{ result.ac.reference_frequency_hz | int }} Hz</span><span class="metric-value">{{ format_phase(result.ac.reference_phase_deg) }}</span><span class="metric-note">inverting stage</span></div>
-          <div class="metric"><span class="metric-label">Low −3 dB cutoff</span><span class="metric-value">{{ format_frequency(result.ac.f_low_3db_hz) }}</span><span class="metric-note">from the sweep</span></div>
-          <div class="metric"><span class="metric-label">High −3 dB cutoff</span><span class="metric-value">{{ format_frequency(result.ac.f_high_3db_hz) }}</span><span class="metric-note">from the sweep</span></div>
+          <div class="metric"><span class="metric-label">Low −3 dB cutoff</span><span class="metric-value">{{ qty(format_frequency(result.ac.f_low_3db_hz)) }}</span><span class="metric-note">from the sweep</span></div>
+          <div class="metric"><span class="metric-label">High −3 dB cutoff</span><span class="metric-value">{{ qty(format_frequency(result.ac.f_high_3db_hz)) }}</span><span class="metric-note">from the sweep</span></div>
         </div>
         <p class="verdict">{{ result.ac.cutoff_note }}</p>
         <figure class="plot-card">
@@ -278,21 +333,24 @@
         </figure>
       </section>
 
-      <section class="result-block" aria-labelledby="tran-heading">
+      <section class="result-block block-tran" aria-labelledby="tran-heading">
         <div class="result-block-head">
-          <h3 id="tran-heading">Transient <span class="source-tag">SPICE .tran</span></h3>
+          <h3 id="tran-heading">Transient <span class="source-tag">SPICE Simulation · .tran</span></h3>
           <span class="run-badge {% if result.tran.inverted %}run-ok{% endif %}">{% if result.tran.inverted %}phase inverted{% else %}phase not inverted{% endif %}</span>
+          {% if result.tran.clipped %}<span class="run-badge run-bad">clipping detected</span>{% endif %}
         </div>
         <div class="metric-grid">
-          <div class="metric"><span class="metric-label">Vin amplitude</span><span class="metric-value">{{ "%.4g" | format(result.tran.vin_amplitude_mv) }} mV</span><span class="metric-note">peak, measured</span></div>
-          <div class="metric"><span class="metric-label">Vout amplitude</span><span class="metric-value">{{ "%.4g" | format(result.tran.vout_amplitude_mv) }} mV</span><span class="metric-note">peak, measured</span></div>
+          <div class="metric"><span class="metric-label">Vin amplitude</span><span class="metric-value">{{ "%.4g" | format(result.tran.vin_amplitude_mv) }}<span class="unit-chip">mV</span></span><span class="metric-note">peak, measured</span></div>
+          <div class="metric"><span class="metric-label">Vout amplitude</span><span class="metric-value">{{ "%.4g" | format(result.tran.vout_amplitude_mv) }}<span class="unit-chip">mV</span></span><span class="metric-note">peak, measured</span></div>
           <div class="metric"><span class="metric-label">Waveform gain</span><span class="metric-value">{{ "%.4g" | format(result.tran.gain) }}×</span><span class="metric-note">Vout / Vin</span></div>
           <div class="metric"><span class="metric-label">Phase difference</span><span class="metric-value">{{ format_phase(result.tran.phase_diff_deg) }}</span><span class="metric-note">Vout relative to Vin</span></div>
+          <div class="metric"><span class="metric-label">Distortion</span><span class="metric-value">{{ "%.2f" | format(result.tran.distortion_pct) }}<span class="unit-chip">%</span></span><span class="metric-note">THD proxy</span></div>
         </div>
         <figure class="plot-card">
           {{ transient_svg(result.tran) | safe }}
           <figcaption>{{ result.tran.note }} Vin is dashed, Vout is solid.</figcaption>
         </figure>
+        <p class="verdict">{{ result.tran.clipping_note }}</p>
       </section>
 
       <details class="crosscheck">

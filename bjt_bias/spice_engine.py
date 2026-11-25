@@ -10,6 +10,7 @@ from __future__ import annotations
 import glob
 import math
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -165,6 +166,7 @@ class AcCurve:
 
     frequencies_hz: tuple[float, ...]
     gain_db: tuple[float, ...]
+    gain_vv: tuple[float, ...]
     phase_deg: tuple[float, ...]
     vin_reference_v: float
     reference_frequency_hz: float
@@ -189,6 +191,9 @@ class TranCurve:
     gain: float
     phase_diff_deg: float
     inverted: bool
+    clipped: bool
+    distortion_pct: float
+    clipping_note: str
     measured_frequency_hz: float
     note: str
 
@@ -398,9 +403,29 @@ def _version_from_install(path: Path) -> str | None:
     return None
 
 
+def _version_from_binary(path: Path) -> str | None:
+    """Ask the executable for its version when no VERSION file is installed."""
+    try:
+        completed = subprocess.run(
+            [str(path), "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5.0,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    output = "\n".join(part for part in (completed.stdout, completed.stderr)
+                       if part)
+    match = re.search(r"ngspice[- ](\d+(?:\.\d+)*)", output, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
 @lru_cache(maxsize=8)
 def _cached_version(path: str) -> str | None:
-    return _version_from_install(Path(path))
+    return _version_from_install(Path(path)) or _version_from_binary(Path(path))
 
 
 def find_ngspice() -> EngineInfo:
@@ -523,6 +548,7 @@ def parse_ac_table(headers: Sequence[str], rows: Sequence[Sequence[float]],
 
     frequencies: list[float] = []
     gains_db: list[float] = []
+    gains_vv: list[float] = []
     raw_phases: list[float] = []
     vin_values: list[float] = []
     for row in rows:
@@ -537,6 +563,7 @@ def parse_ac_table(headers: Sequence[str], rows: Sequence[Sequence[float]],
         phase = (phase + 180.0) % 360.0 - 180.0
         frequencies.append(frequency)
         gains_db.append(20.0 * math.log10(gain) if gain > 0 else -300.0)
+        gains_vv.append(gain)
         raw_phases.append(phase)
         vin_values.append(vin_magnitude)
     if len(frequencies) < 2:
@@ -589,6 +616,7 @@ def parse_ac_table(headers: Sequence[str], rows: Sequence[Sequence[float]],
     return AcCurve(
         frequencies_hz=tuple(frequencies),
         gain_db=tuple(gains_db),
+        gain_vv=tuple(gains_vv),
         phase_deg=tuple(phases),
         vin_reference_v=vin_values[reference_index],
         reference_frequency_hz=reference_hz,
@@ -641,14 +669,34 @@ def parse_tran_table(headers: Sequence[str], rows: Sequence[Sequence[float]],
     if len(indices) < 8:
         indices = list(range(max(0, len(times) - 8), len(times)))
     fit_times = [times[index] for index in indices]
+    fit_vin = [vin[index] for index in indices]
+    fit_vout = [vout[index] for index in indices]
+    vin_mean = sum(fit_vin) / len(fit_vin)
+    vout_mean = sum(fit_vout) / len(fit_vout)
     vin_amplitude, vin_phase = _phasor(
-        fit_times, [vin[index] for index in indices], frequency_hz)
+        fit_times, [value - vin_mean for value in fit_vin], frequency_hz)
     vout_amplitude, vout_phase = _phasor(
-        fit_times, [vout[index] for index in indices], frequency_hz)
+        fit_times, [value - vout_mean for value in fit_vout], frequency_hz)
     phase_diff = math.degrees(vout_phase - vin_phase)
     phase_diff = (phase_diff + 180.0) % 360.0 - 180.0
     gain = vout_amplitude / vin_amplitude if vin_amplitude else 0.0
     inverted = abs(abs(phase_diff) - 180.0) <= 45.0
+
+    omega = 2.0 * math.pi * frequency_hz
+    fitted = [vout_amplitude * math.sin(omega * time + vout_phase)
+              for time in fit_times]
+    residual_rms = math.sqrt(
+        sum((value - fit) ** 2 for value, fit in zip(fit_vout, fitted))
+        / len(fit_vout))
+    fundamental_rms = vout_amplitude / math.sqrt(2.0)
+    distortion_pct = (100.0 * residual_rms / fundamental_rms
+                      if fundamental_rms > 0 else 0.0)
+    clipped = distortion_pct >= 5.0
+    clipping_note = (
+        "Clipping or strong distortion detected; reduce the source amplitude."
+        if clipped else
+        "No clipping detected in the steady-state window."
+    )
     return TranCurve(
         time_ms=tuple(time * 1000.0 for time in times),
         vin_mv=tuple(value * 1000.0 for value in vin),
@@ -658,6 +706,9 @@ def parse_tran_table(headers: Sequence[str], rows: Sequence[Sequence[float]],
         gain=gain,
         phase_diff_deg=phase_diff,
         inverted=inverted,
+        clipped=clipped,
+        distortion_pct=distortion_pct,
+        clipping_note=clipping_note,
         measured_frequency_hz=frequency_hz,
         note=(f"Phasors fitted at {frequency_hz:g} Hz over the last "
               f"{window_s * 1000.0:.3g} ms of the real ngspice waveform."),

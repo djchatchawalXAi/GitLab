@@ -2,7 +2,16 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.env.*
 .pytest_cache/
 node_modules/
 .opencode/
 *.log
+
+# Screen captures are submitted separately, not committed.
+docs/captures/*.png
+bjt_bias/docs/captures/*.png
+
+# Transient ngspice working artifacts (real runs use temp directories).
+*.raw
+*.cir
